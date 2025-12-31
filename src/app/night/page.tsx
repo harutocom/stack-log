@@ -1,17 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import NightReflectionClient from "@/components/NightReflectionClient";
-
-const FIXED_USER_ID = "user-001";
+import { getCurrentUser } from "@/lib/auth-helper";
 
 export const dynamic = "force-dynamic";
 
 export default async function NightReflectionPage() {
+  const userId = await getCurrentUser();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const tasks = await prisma.task.findMany({
     where: {
-      userId: FIXED_USER_ID,
+      userId,
       date: {
         gte: today,
         lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),

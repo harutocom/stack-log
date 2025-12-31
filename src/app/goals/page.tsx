@@ -3,23 +3,23 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import GoalEditor from "@/components/GoalEditor";
 import { updateMonthlyGoal, updateWeeklyGoal } from "@/app/actions";
-
-const FIXED_USER_ID = "user-001";
+import { getCurrentUser } from "@/lib/auth-helper";
 
 export const dynamic = "force-dynamic";
 
 export default async function GoalsPage() {
+  const userId = await getCurrentUser();
   // Fetch latest goals
   // In a real app we might rely on the hierarchy properly or 'isActive' flags.
   // Using direct latest query for simplicity as per requirements for MVP.
 
   const monthlyGoal = await prisma.monthlyGoal.findFirst({
-    where: { userId: FIXED_USER_ID },
+    where: { userId },
     orderBy: { createdAt: "desc" },
   });
 
   const weeklyGoal = await prisma.weeklyGoal.findFirst({
-    where: { userId: FIXED_USER_ID },
+    where: { userId },
     orderBy: { createdAt: "desc" },
   });
 

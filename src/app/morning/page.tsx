@@ -1,19 +1,19 @@
 import { prisma } from "@/lib/prisma";
 import MorningCheckWizard from "@/components/MorningCheckWizard";
-
-const FIXED_USER_ID = "user-001";
-const FIXED_WEEKLY_GOAL_ID = "weekly-001";
+import { getCurrentUser } from "@/lib/auth-helper";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function MorningCheckPage() {
+  const userId = await getCurrentUser();
   const today = new Date();
   today.setHours(0, 0, 0, 0); // Start of today
 
   // 1. Fetch Past unfinished tasks (yesterday and before)
   const pastTasks = await prisma.task.findMany({
     where: {
-      userId: FIXED_USER_ID,
+      userId,
       isCompleted: false,
       date: {
         lt: today,
@@ -22,13 +22,18 @@ export default async function MorningCheckPage() {
   });
 
   // 2. Fetch Current Weekly Goal
-  const weeklyGoal = await prisma.weeklyGoal.findUnique({
-    where: { id: FIXED_WEEKLY_GOAL_ID },
+  const weeklyGoal = await prisma.weeklyGoal.findFirst({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
   });
 
-  // Fallback if no goal found (though seed ensures it exists)
+  // Fallback if no goal found
   if (!weeklyGoal) {
-    return <div>Error: Weekly Goal not found. Please run seed.</div>;
+    // For MVP, if no goal, maybe redirect to goals or show message
+    // return <div>Please create a weekly goal first.</div>;
+    // Or just pass null if wizard handles it, but wizard props say WeeklyGoal.
+    // Let's redirect to /goals if no goal?
+    redirect("/goals");
   }
 
   return <MorningCheckWizard pastTasks={pastTasks} weeklyGoal={weeklyGoal} />;

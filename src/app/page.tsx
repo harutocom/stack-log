@@ -1,22 +1,29 @@
 import { prisma } from "@/lib/prisma";
-import { mockUser, mockWeeklyGoal } from "@/lib/mockData"; // Fallback / Context
-import { Clock, MoreHorizontal, Moon } from "lucide-react";
+import { Clock, MoreHorizontal, Moon, LogOut } from "lucide-react";
 import { TasksView } from "@/components/TasksView";
+import { getCurrentUser } from "@/lib/auth-helper";
+import { signOut } from "@/auth";
 
 export const dynamic = "force-dynamic"; // Prevent caching for dev
 
 export default async function Home() {
+  const userId = await getCurrentUser();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   // Fetch data directly from DB
   const tasks = await prisma.task.findMany({
-    where: { userId: mockUser.id },
+    where: { userId },
     orderBy: { createdAt: "desc" },
   });
 
-  // Fetch or use mock Weekly Goal
-  const weeklyGoal =
-    (await prisma.weeklyGoal.findUnique({
-      where: { id: mockWeeklyGoal.id },
-    })) || mockWeeklyGoal;
+  // Fetch Weekly Goal
+  const weeklyGoal = await prisma.weeklyGoal.findFirst({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const weeklyGoalTitle = weeklyGoal?.title || "No Active Goal";
 
   return (
     <div className="min-h-screen bg-neutral-50 text-zinc-900 pb-24 font-sans selection:bg-black selection:text-white">
@@ -39,6 +46,20 @@ export default async function Home() {
             >
               <MoreHorizontal size={24} />
             </a>
+            <form
+              action={async () => {
+                "use server";
+                await signOut();
+              }}
+            >
+              <button
+                type="submit"
+                className="p-2 text-zinc-400 hover:text-red-500 transition-colors"
+                title="Sign Out"
+              >
+                <LogOut size={24} />
+              </button>
+            </form>
           </div>
         </div>
 
@@ -49,7 +70,7 @@ export default async function Home() {
             Weekly Goal
           </p>
           <h2 className="text-lg font-bold leading-snug text-zinc-900">
-            {weeklyGoal.title}
+            {weeklyGoalTitle}
           </h2>
           <div className="mt-4 flex items-center text-xs font-medium text-zinc-500">
             <span className="flex items-center">
@@ -61,7 +82,7 @@ export default async function Home() {
       </header>
 
       {/* Task List (Client Component with Optimistic Updates) */}
-      <TasksView initialTasks={tasks} weeklyGoalTitle={weeklyGoal.title} />
+      <TasksView initialTasks={tasks} weeklyGoalTitle={weeklyGoalTitle} />
 
       {/* Bottom Blur Fade for style */}
       <div className="fixed bottom-0 left-0 w-full h-12 bg-gradient-to-t from-neutral-50 to-transparent pointer-events-none" />
