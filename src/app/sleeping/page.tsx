@@ -23,7 +23,7 @@ export default function SleepingPage() {
 
     if (newCount >= 5) {
       // Unlock / Go back to home
-      router.push("/");
+      router.push("/morning");
     }
   };
 

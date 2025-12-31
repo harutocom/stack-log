@@ -38,16 +38,16 @@ export async function addTask(title: string, durationMinutes: number) {
 }
 
 export async function startDay(
-  yesterdayTaskIdsToReschedule: string[],
+  carryOverTaskIds: string[],
   newTasks: { title: string; duration: number }[]
 ) {
   const today = new Date();
 
-  // 1. Reschedule selected yesterday's tasks to today
-  if (yesterdayTaskIdsToReschedule.length > 0) {
+  // 1. Carry over selected past tasks to today
+  if (carryOverTaskIds.length > 0) {
     await prisma.task.updateMany({
       where: {
-        id: { in: yesterdayTaskIdsToReschedule },
+        id: { in: carryOverTaskIds },
       },
       data: {
         date: today,
@@ -119,4 +119,22 @@ export async function completeDay(journal: string, achievementRate: number) {
   });
 
   redirect("/sleeping");
+}
+
+export async function updateMonthlyGoal(goalId: string, title: string) {
+  await prisma.monthlyGoal.update({
+    where: { id: goalId },
+    data: { title },
+  });
+  revalidatePath("/goals");
+  revalidatePath("/");
+}
+
+export async function updateWeeklyGoal(goalId: string, title: string) {
+  await prisma.weeklyGoal.update({
+    where: { id: goalId },
+    data: { title },
+  });
+  revalidatePath("/goals");
+  revalidatePath("/");
 }

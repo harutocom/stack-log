@@ -28,12 +28,17 @@ export default async function Home() {
             <a
               href="/night"
               className="p-2 text-zinc-400 hover:text-indigo-900 transition-colors"
+              title="Night Reflection"
             >
               <Moon size={24} />
             </a>
-            <button className="p-2 -mr-2 text-zinc-400 hover:text-zinc-600">
+            <a
+              href="/goals"
+              className="p-2 -mr-2 text-zinc-400 hover:text-zinc-600 transition-colors"
+              title="Manage Goals"
+            >
               <MoreHorizontal size={24} />
-            </button>
+            </a>
           </div>
         </div>
 

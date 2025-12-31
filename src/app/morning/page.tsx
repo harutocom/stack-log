@@ -10,8 +10,8 @@ export default async function MorningCheckPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0); // Start of today
 
-  // 1. Fetch Yesterday's unfinished tasks
-  const yesterdayTasks = await prisma.task.findMany({
+  // 1. Fetch Past unfinished tasks (yesterday and before)
+  const pastTasks = await prisma.task.findMany({
     where: {
       userId: FIXED_USER_ID,
       isCompleted: false,
@@ -31,10 +31,5 @@ export default async function MorningCheckPage() {
     return <div>Error: Weekly Goal not found. Please run seed.</div>;
   }
 
-  return (
-    <MorningCheckWizard
-      yesterdayTasks={yesterdayTasks}
-      weeklyGoal={weeklyGoal}
-    />
-  );
+  return <MorningCheckWizard pastTasks={pastTasks} weeklyGoal={weeklyGoal} />;
 }

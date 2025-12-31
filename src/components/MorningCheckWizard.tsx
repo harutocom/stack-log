@@ -15,19 +15,14 @@ import { Task, WeeklyGoal } from "@prisma/client";
 import { startDay } from "@/app/actions";
 
 type Props = {
-  yesterdayTasks: Task[];
+  pastTasks: Task[];
   weeklyGoal: WeeklyGoal;
 };
 
-export default function MorningCheckWizard({
-  yesterdayTasks,
-  weeklyGoal,
-}: Props) {
+export default function MorningCheckWizard({ pastTasks, weeklyGoal }: Props) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [selectedYesterdayTasks, setSelectedYesterdayTasks] = useState<
-    string[]
-  >([]);
+  const [selectedPastTasks, setSelectedPastTasks] = useState<string[]>([]);
   const [todaysTasks, setTodaysTasks] = useState<
     { id: string; title: string; duration: number }[]
   >([]);
@@ -35,8 +30,8 @@ export default function MorningCheckWizard({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Step 1 Logic
-  const toggleYesterdayTask = (id: string) => {
-    setSelectedYesterdayTasks((prev) =>
+  const togglePastTask = (id: string) => {
+    setSelectedPastTasks((prev) =>
       prev.includes(id) ? prev.filter((tid) => tid !== id) : [...prev, id]
     );
   };
@@ -65,7 +60,7 @@ export default function MorningCheckWizard({
   const handleFinish = async () => {
     setIsSubmitting(true);
     await startDay(
-      selectedYesterdayTasks,
+      selectedPastTasks, // carryOverTaskIds
       todaysTasks.map((t) => ({ title: t.title, duration: t.duration }))
     );
     router.push("/");
@@ -86,33 +81,33 @@ export default function MorningCheckWizard({
           ))}
         </div>
 
-        {/* Step 1: Yesterday's Review */}
+        {/* Step 1: Past Tasks Review */}
         {step === 1 && (
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-500">
             <div className="text-center mb-8">
               <span className="inline-block p-3 bg-orange-100 text-orange-600 rounded-full mb-4">
                 <Calendar size={24} />
               </span>
-              <h1 className="text-2xl font-bold mb-2">
-                Yesterday's Unfinished
-              </h1>
-              <p className="text-zinc-500">Carry these tasks over to today?</p>
+              <h1 className="text-2xl font-bold mb-2">Unfinished Tasks</h1>
+              <p className="text-zinc-500">
+                Carry these past tasks over to today?
+              </p>
             </div>
 
             <div className="space-y-3 mb-8">
-              {yesterdayTasks.length === 0 && (
+              {pastTasks.length === 0 && (
                 <p className="text-center text-zinc-400 italic py-4">
-                  No unfinished tasks from yesterday! 🎉
+                  No unfinished tasks! 🎉
                 </p>
               )}
-              {yesterdayTasks.map((task) => (
+              {pastTasks.map((task) => (
                 <div
                   key={task.id}
-                  onClick={() => toggleYesterdayTask(task.id)}
+                  onClick={() => togglePastTask(task.id)}
                   className={`
                         p-4 rounded-xl border-2 cursor-pointer flex items-center justify-between transition-all
                         ${
-                          selectedYesterdayTasks.includes(task.id)
+                          selectedPastTasks.includes(task.id)
                             ? "border-zinc-900 bg-white shadow-md"
                             : "border-transparent bg-white shadow-sm opacity-60 hover:opacity-100"
                         }
@@ -123,7 +118,7 @@ export default function MorningCheckWizard({
                     className={`
                         w-6 h-6 rounded-full flex items-center justify-center transition-colors
                         ${
-                          selectedYesterdayTasks.includes(task.id)
+                          selectedPastTasks.includes(task.id)
                             ? "bg-zinc-900 text-white"
                             : "bg-zinc-100 text-zinc-300"
                         }
@@ -167,10 +162,10 @@ export default function MorningCheckWizard({
                 Task List
               </h3>
 
-              {selectedYesterdayTasks.length > 0 && (
+              {selectedPastTasks.length > 0 && (
                 <div className="mb-4 space-y-2">
-                  {yesterdayTasks
-                    .filter((t) => selectedYesterdayTasks.includes(t.id))
+                  {pastTasks
+                    .filter((t) => selectedPastTasks.includes(t.id))
                     .map((t) => (
                       <div
                         key={t.id}
@@ -247,11 +242,11 @@ export default function MorningCheckWizard({
                 Summary
               </p>
               <p className="text-2xl font-bold text-zinc-900 mb-1">
-                {selectedYesterdayTasks.length + todaysTasks.length} Tasks
+                {selectedPastTasks.length + todaysTasks.length} Tasks
               </p>
               <p className="text-sm text-zinc-500">
                 Estimated time:{" "}
-                {(selectedYesterdayTasks.length + todaysTasks.length) * 30} mins
+                {(selectedPastTasks.length + todaysTasks.length) * 30} mins
               </p>
             </div>
 
