@@ -1,0 +1,201 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --------------------------------------
+// 1. User & Auth (ユーザーと認証)
+// --------------------------------------
+
+/// ユーザー情報: 認証情報、プロフ、デトックス設定
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?   /// プロフィール画像URL
+  bio           String?   /// 自己紹介
+
+  // デトックス設定 (HH:mm形式の文字列を想定)
+  wakeUpTime    String?   /// 起床時間 (例: "07:00")
+  bedTime       String?   /// 就寝時間 (例: "23:00")
+
+  // Auth Relations
+  accounts      Account[]
+  sessions      Session[]
+
+  // App Relations
+  seasonGoals   SeasonGoal[]
+  monthlyGoals  MonthlyGoal[] // Short-cut relation if needed, or access via Season
+  weeklyGoals   WeeklyGoal[]  // Short-cut relation or via Monthly
+  tasks         Task[]
+  dailyLogs     DailyLog[]
+
+  // Social Relations (Follow/Follower)
+  followedBy    Follow[]  @relation("followedBy")
+  following     Follow[]  @relation("following")
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// --------------------------------------
+// 2. Goal Hierarchy (目標の12週間サイクル)
+// --------------------------------------
+
+/// 12週間のシーズン目標 (3ヶ月単位)
+model SeasonGoal {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String   /// シーズンのテーマ・大目標
+  startDate DateTime /// 開始日
+  endDate   DateTime /// 終了日
+  isActive  Boolean  @default(true)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monthlyGoals MonthlyGoal[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// 月間目標: SeasonGoalを構成する要素
+model MonthlyGoal {
+  id           String   @id @default(cuid())
+  seasonGoalId String
+  userId       String
+  title        String   /// 今月の目標
+  month        Int      /// 何月か (Example: 1-12)
+  year         Int      /// 年 (Example: 2025)
+
+  seasonGoal   SeasonGoal   @relation(fields: [seasonGoalId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weeklyGoals  WeeklyGoal[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// 週間目標: MonthlyGoalを構成する要素。タスクの親となる。
+model WeeklyGoal {
+  id            String   @id @default(cuid())
+  monthlyGoalId String
+  userId        String
+  title         String   /// 今週の目標
+  weekNumber    Int      /// 月内の第何週か (1-5)
+  startDate     DateTime /// その週の開始日
+  endDate       DateTime /// その週の終了日
+
+  monthlyGoal   MonthlyGoal @relation(fields: [monthlyGoalId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks         Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --------------------------------------
+// 3. Tasks (日々のタスク)
+// --------------------------------------
+
+/// タスク: WeeklyGoalに紐づく具体的な行動
+model Task {
+  id            String   @id @default(cuid())
+  weeklyGoalId  String
+  userId        String
+  title         String   /// タスク名
+  date          DateTime /// 実行予定日・実行日
+  durationMinutes Int    @default(0) /// 作業時間(分)
+  isCompleted   Boolean  @default(false)
+
+  weeklyGoal    WeeklyGoal @relation(fields: [weeklyGoalId], references: [id], onDelete: Cascade)
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, date])
+}
+
+// --------------------------------------
+// 4. Daily Log / Shutdown (日々の記録・コミット)
+// --------------------------------------
+
+/// 日次ログ: 1日の強制終了(Shutdown)時に作成される記録
+model DailyLog {
+  id              String   @id @default(cuid())
+  userId          String
+  date            DateTime @unique /// 記録する日付 (Uniqueにして1日1件に制限)
+  
+  commitTime      DateTime /// コミット時刻 (1日を終了した時間)
+  achievementRate Int      /// その日の達成率 (0-100%)
+  journal         String?  @db.Text /// 振り返りテキスト
+  imageUrl        String?  /// その日の画像URL
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --------------------------------------
+// 5. Social (フォロー機能)
+// --------------------------------------
+
+/// フォロー/フォロワー関係 (中間テーブル)
+model Follow {
+  followerId  String
+  followingId String
+
+  follower    User @relation("following", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User @relation("followedBy", fields: [followingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([followerId, followingId])
+}
