@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Clock, MoreHorizontal, Moon, LogOut } from "lucide-react";
+import { Clock, MoreHorizontal, Moon, LogOut, Calendar } from "lucide-react";
 import { TasksView } from "@/components/TasksView";
 import { getCurrentUser } from "@/lib/auth-helper";
 import { signOut } from "@/auth";
@@ -38,6 +38,13 @@ export default async function Home() {
               title="Night Reflection"
             >
               <Moon size={24} />
+            </a>
+            <a
+              href="/history"
+              className="p-2 text-zinc-400 hover:text-indigo-900 transition-colors"
+              title="History"
+            >
+              <Calendar size={24} />
             </a>
             <a
               href="/goals"

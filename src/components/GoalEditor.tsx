@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check, X, Edit2, Loader2 } from "lucide-react";
 
 type Props = {
-  goalId: string;
+  goalId?: string;
   initialTitle: string;
   type: "monthly" | "weekly";
   onSave: (id: string, title: string) => Promise<void>;
@@ -16,7 +16,7 @@ export default function GoalEditor({
   type,
   onSave,
 }: Props) {
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(!initialTitle); // Auto-edit if empty
   const [title, setTitle] = useState(initialTitle);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -24,7 +24,7 @@ export default function GoalEditor({
     if (!title.trim()) return;
     setIsSaving(true);
     try {
-      await onSave(goalId, title);
+      await onSave(goalId || "", title);
       setIsEditing(false);
     } catch (error) {
       console.error("Failed to update goal:", error);
@@ -35,6 +35,11 @@ export default function GoalEditor({
   };
 
   const handleCancel = () => {
+    if (!goalId) {
+      // If creating and cancelled, maybe reset to clear?
+      // But preventing cancel if it's required?
+      // Let's just reset.
+    }
     setTitle(initialTitle);
     setIsEditing(false);
   };
@@ -46,6 +51,7 @@ export default function GoalEditor({
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          placeholder={`Enter ${type} goal...`}
           className="flex-grow p-2 rounded-lg border border-zinc-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
           autoFocus
           disabled={isSaving}
@@ -65,13 +71,15 @@ export default function GoalEditor({
             <Check size={16} />
           )}
         </button>
-        <button
-          onClick={handleCancel}
-          disabled={isSaving}
-          className="p-2 bg-zinc-100 text-zinc-600 rounded-lg hover:bg-zinc-200 transition-colors disabled:opacity-50"
-        >
-          <X size={16} />
-        </button>
+        {goalId && (
+          <button
+            onClick={handleCancel}
+            disabled={isSaving}
+            className="p-2 bg-zinc-100 text-zinc-600 rounded-lg hover:bg-zinc-200 transition-colors disabled:opacity-50"
+          >
+            <X size={16} />
+          </button>
+        )}
       </div>
     );
   }
@@ -84,12 +92,12 @@ export default function GoalEditor({
             {type === "monthly" ? "Monthly Goal" : "Weekly Goal"}
           </p>
           <p className="text-lg font-bold text-zinc-900 leading-snug">
-            {title}
+            {title || "Click to set a goal"}
           </p>
         </div>
         <button
           onClick={() => setIsEditing(true)}
-          className="text-zinc-300 hover:text-indigo-600 p-1 opacity-0 group-hover:opacity-100 transition-all"
+          className="text-zinc-300 hover:text-indigo-600 p-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all"
         >
           <Edit2 size={18} />
         </button>

@@ -189,3 +189,180 @@ export async function updateWeeklyGoal(goalId: string, title: string) {
   revalidatePath("/goals");
   revalidatePath("/");
 }
+
+// Helper to ensure Season exists
+async function ensureSeasonGoal(userId: string, date: Date) {
+  const year = date.getFullYear();
+  const month = date.getMonth(); // 0-11
+  const quarter = Math.floor(month / 3) + 1;
+  const seasonTitle = `Season Q${quarter} ${year}`;
+
+  // Start/End of quarter
+  const startMonth = (quarter - 1) * 3;
+  const startDate = new Date(year, startMonth, 1);
+  const endDate = new Date(year, startMonth + 3, 0, 23, 59, 59);
+
+  let season = await prisma.seasonGoal.findFirst({
+    where: {
+      userId,
+      startDate: { lte: date },
+      endDate: { gte: date },
+    },
+  });
+
+  if (!season) {
+    season = await prisma.seasonGoal.create({
+      data: {
+        userId,
+        title: seasonTitle,
+        startDate,
+        endDate,
+        isActive: true,
+      },
+    });
+  }
+  return season;
+}
+
+export async function createMonthlyGoal(title: string) {
+  const userId = await getCurrentUser();
+  const today = new Date();
+
+  const season = await ensureSeasonGoal(userId, today);
+
+  await prisma.monthlyGoal.create({
+    data: {
+      userId,
+      title,
+      seasonGoalId: season.id,
+      month: today.getMonth() + 1,
+      year: today.getFullYear(),
+    },
+  });
+  revalidatePath("/goals");
+  revalidatePath("/");
+}
+
+async function ensureMonthlyGoal(userId: string, date: Date) {
+  let monthly = await prisma.monthlyGoal.findFirst({
+    where: {
+      userId,
+      month: date.getMonth() + 1,
+      year: date.getFullYear(),
+    },
+  });
+
+  if (!monthly) {
+    const season = await ensureSeasonGoal(userId, date);
+    monthly = await prisma.monthlyGoal.create({
+      data: {
+        userId,
+        title: "Monthly Goal", // Placeholder
+        seasonGoalId: season.id,
+        month: date.getMonth() + 1,
+        year: date.getFullYear(),
+      },
+    });
+  }
+  return monthly;
+}
+
+export async function createWeeklyGoal(title: string) {
+  const userId = await getCurrentUser();
+  const today = new Date();
+
+  const monthly = await ensureMonthlyGoal(userId, today);
+
+  // Calculate week info
+  // Current logic: just days range?
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
+  const endOfWeek = new Date(today);
+  endOfWeek.setDate(today.getDate() + (6 - today.getDay())); // Saturday
+
+  // Approximate week number in month
+  const weekNum = Math.ceil(today.getDate() / 7);
+
+  await prisma.weeklyGoal.create({
+    data: {
+      userId,
+      title,
+      monthlyGoalId: monthly.id,
+      weekNumber: weekNum,
+      startDate: startOfWeek,
+      endDate: endOfWeek,
+    },
+  });
+  revalidatePath("/goals");
+  revalidatePath("/");
+}
+
+export async function getMonthlyHistory(year: number, month: number) {
+  const userId = await getCurrentUser();
+
+  // Calculate start and end of the month
+  // Month is 1-indexed in UI, but Date uses 0-indexed for constructor if we use (year, monthIndex).
+  const startDate = new Date(year, month - 1, 1);
+  const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+
+  const logs = await prisma.dailyLog.findMany({
+    where: {
+      userId,
+      date: {
+        gte: startDate,
+        lte: endOfMonth,
+      },
+    },
+    select: {
+      date: true,
+      achievementRate: true,
+      journal: true,
+    },
+  });
+
+  const tasks = await prisma.task.findMany({
+    where: {
+      userId,
+      date: {
+        gte: startDate,
+        lte: endOfMonth,
+      },
+      isCompleted: true, // Only fetch completed tasks for history
+    },
+    select: {
+      id: true,
+      title: true,
+      date: true,
+    },
+  });
+
+  // Organize by date string "YYYY-MM-DD" for easy frontend lookup
+  const historyData: Record<
+    string,
+    {
+      log?: { achievementRate: number; journal: string | null };
+      tasks: { id: string; title: string }[];
+    }
+  > = {};
+
+  const toKey = (date: Date) => {
+    return date.toISOString().split("T")[0];
+  };
+
+  logs.forEach((log) => {
+    const key = toKey(log.date);
+    if (!historyData[key]) historyData[key] = { tasks: [] };
+    historyData[key].log = {
+      achievementRate: log.achievementRate,
+      journal: log.journal,
+    };
+  });
+
+  tasks.forEach((task) => {
+    const key = toKey(task.date);
+    if (!historyData[key]) historyData[key] = { tasks: [] };
+    historyData[key].tasks.push({ id: task.id, title: task.title });
+  });
+
+  return historyData;
+}

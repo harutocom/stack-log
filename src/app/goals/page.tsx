@@ -2,7 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import GoalEditor from "@/components/GoalEditor";
-import { updateMonthlyGoal, updateWeeklyGoal } from "@/app/actions";
+import {
+  updateMonthlyGoal,
+  updateWeeklyGoal,
+  createMonthlyGoal,
+  createWeeklyGoal,
+} from "@/app/actions";
 import { getCurrentUser } from "@/lib/auth-helper";
 
 export const dynamic = "force-dynamic";
@@ -41,9 +46,14 @@ export default async function GoalsPage() {
       <main className="max-w-md mx-auto space-y-6">
         <section>
           {!monthlyGoal ? (
-            <div className="p-4 bg-yellow-50 text-yellow-800 rounded-xl text-sm">
-              No Monthly Goal found. Please check seeding.
-            </div>
+            <GoalEditor
+              initialTitle=""
+              type="monthly"
+              onSave={async (_id, title) => {
+                "use server";
+                await createMonthlyGoal(title);
+              }}
+            />
           ) : (
             <GoalEditor
               goalId={monthlyGoal.id}
@@ -60,9 +70,14 @@ export default async function GoalsPage() {
 
         <section>
           {!weeklyGoal ? (
-            <div className="p-4 bg-yellow-50 text-yellow-800 rounded-xl text-sm">
-              No Weekly Goal found. Please check seeding.
-            </div>
+            <GoalEditor
+              initialTitle=""
+              type="weekly"
+              onSave={async (_id, title) => {
+                "use server";
+                await createWeeklyGoal(title);
+              }}
+            />
           ) : (
             <GoalEditor
               goalId={weeklyGoal.id}
